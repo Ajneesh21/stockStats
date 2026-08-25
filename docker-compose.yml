@@ -1,0 +1,32 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stockstats-web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+      - FINNHUB_API_KEY=da6r27hr01qqqkkgs0dgda6r27hr01qqqkkgs0e0
+      - PORT=3000
+    depends_on:
+      - redis
+    volumes:
+      - app-storage:/app/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: stockstats-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+
+volumes:
+  app-storage:
+  redis-data:
