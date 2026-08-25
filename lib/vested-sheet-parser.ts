@@ -12,6 +12,7 @@ export function parseVestedSpreadsheetSheets(
 ): ParsedPdfResult {
   const transactions: Transaction[] = [];
   let txCounter = 1;
+  let latestAccountBalance: number | undefined;
 
   // Find sheet by name regex
   const findSheet = (pattern: RegExp) => {
@@ -105,6 +106,28 @@ export function parseVestedSpreadsheetSheets(
     return normDate;
   }
 
+  // 0. Parse All Transactions Sheet for exact running Account Balance
+  const allTxSheet = findSheet(/all\s*transactions/i);
+  const balanceByDateTime: Record<string, number> = {};
+
+  if (allTxSheet) {
+    const rows = parseRowsFromSheet(allTxSheet);
+    for (const r of rows) {
+      const dt = parseDateTimeIso(r["date"] || r["datetime"] || "", r["timeinutc"] || r["time"] || "");
+      const balStr = r["accountbalance"] || r["balance"] || r["buyingpower"] || "";
+      if (balStr) {
+        const bal = parseFloat(balStr.replace(/[^0-9.-]/g, ""));
+        if (!isNaN(bal)) {
+          balanceByDateTime[dt] = bal;
+          if (latestAccountBalance === undefined) {
+            // Since All Transactions is listed with newest on top
+            latestAccountBalance = bal;
+          }
+        }
+      }
+    }
+  }
+
   // 1. Parse Transfers (Deposits & Withdrawals)
   const transfersSheet = findSheet(/transfers/i);
   if (transfersSheet) {
@@ -113,6 +136,7 @@ export function parseVestedSpreadsheetSheets(
       const dt = parseDateTimeIso(r["date"] || r["datetime"] || "", r["timeinutc"] || r["time"] || "");
       const activity = (r["activity"] || r["type"] || "Deposit").toUpperCase();
       const amount = Math.abs(parseFloat(r["cashamountinusd"] || r["amount"] || "0") || 0);
+      const bal = balanceByDateTime[dt];
 
       if (dt && amount > 0) {
         const isDeposit = activity.includes("DEP") || activity.includes("REC") || !activity.includes("WITH");
@@ -124,6 +148,7 @@ export function parseVestedSpreadsheetSheets(
           shares: 0,
           price: 1,
           amount: isDeposit ? amount : -amount,
+          accountBalance: bal,
           notes: `Bank Transfer (${activity})`,
         });
       }
@@ -149,6 +174,7 @@ export function parseVestedSpreadsheetSheets(
       const price = Math.abs(parseFloat(r["pricepershareinusd"] || r["price"] || "0") || 0);
       const amount = Math.abs(parseFloat(r["cashamountinusd"] || r["amount"] || "0") || shares * price);
       const fee = Math.abs(parseFloat(r["commissionchargesinusd"] || r["fee"] || "0") || 0);
+      const bal = balanceByDateTime[dt];
 
       if (dt && ticker && (shares > 0 || amount > 0)) {
         const isBuy = activity.includes("BUY") || activity.includes("PURCHASE");
@@ -161,6 +187,7 @@ export function parseVestedSpreadsheetSheets(
           price: price > 0 ? price : Number((amount / (shares || 1)).toFixed(2)),
           amount: isBuy ? -amount : amount,
           fee,
+          accountBalance: bal,
           notes: `${r["name"] || ticker} ${activity} (${dt})`,
         });
       }
@@ -176,6 +203,7 @@ export function parseVestedSpreadsheetSheets(
       const activity = (r["activity"] || r["type"] || "").toUpperCase();
       const ticker = (r["ticker"] || r["symbol"] || "USD").toUpperCase();
       const amount = parseFloat(r["grosscashamountinusd"] || r["amount"] || "0") || 0;
+      const bal = balanceByDateTime[dt];
 
       if (dt && amount !== 0) {
         if (activity.includes("DIVIDEND")) {
@@ -187,6 +215,7 @@ export function parseVestedSpreadsheetSheets(
             shares: 0,
             price: 0,
             amount: Math.abs(amount),
+            accountBalance: bal,
             notes: `Dividend from ${ticker}`,
           });
         } else if (activity.includes("TAX")) {
@@ -198,6 +227,7 @@ export function parseVestedSpreadsheetSheets(
             shares: 0,
             price: 0,
             amount: -Math.abs(amount),
+            accountBalance: bal,
             notes: `Tax Withholding on ${ticker}`,
           });
         } else if (activity.includes("INTEREST")) {
@@ -209,6 +239,7 @@ export function parseVestedSpreadsheetSheets(
             shares: 0,
             price: 0,
             amount: Math.abs(amount),
+            accountBalance: bal,
             notes: "Cash Interest Income",
           });
         }
@@ -217,7 +248,6 @@ export function parseVestedSpreadsheetSheets(
   }
 
   // Sort all transactions chronologically
-  // On the same date, process DEPOSITS first, then BUYS, then SELLS, then DIVIDENDS
   const typePriority: Record<string, number> = {
     DEPOSIT: 1,
     BUY: 2,
@@ -241,6 +271,7 @@ export function parseVestedSpreadsheetSheets(
     transactions,
     accountInfo: {
       brokerName: "Vested Finance / DriveWealth",
+      cashBalance: latestAccountBalance,
     },
     totalTransactionsParsed: transactions.length,
     errors: transactions.length === 0 ? ["No transactions found in spreadsheet sheets."] : [],

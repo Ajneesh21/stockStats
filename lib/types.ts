@@ -17,6 +17,7 @@ export interface Transaction {
   price: number; // Price per share in USD
   amount: number; // Net cash flow impact (positive = cash received, negative = cash spent)
   fee?: number;
+  accountBalance?: number; // Exact cash / buying power after this transaction (e.g. 30.61)
   notes?: string;
   exchangeRate?: number; // USD to INR exchange rate if present
 }
@@ -144,6 +145,8 @@ export interface ParsedPdfResult {
     statementPeriod?: string;
     brokerName?: string;
     investorName?: string;
+    cashBalance?: number;
+    totalAccountValue?: number;
   };
   totalTransactionsParsed: number;
   errors?: string[];

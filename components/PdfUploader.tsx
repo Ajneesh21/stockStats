@@ -3,7 +3,7 @@
 import React, { useState, useRef } from "react";
 import {
   Upload,
-  FileText,
+  FileSpreadsheet,
   CheckCircle2,
   AlertCircle,
   Sparkles,
@@ -62,13 +62,13 @@ export const PdfUploader: React.FC<PdfUploaderProps> = ({
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        throw new Error(data.error || "Failed to parse PDF document");
+        throw new Error(data.error || "Failed to parse spreadsheet file");
       }
 
       setParsedResult(data);
     } catch (err: any) {
-      console.error("PDF Parsing error:", err);
-      setUploadError(err.message || "Failed to read or parse this PDF file.");
+      console.error("Spreadsheet parsing error:", err);
+      setUploadError(err.message || "Failed to read or parse this spreadsheet file.");
     } finally {
       setIsUploading(false);
     }
@@ -100,7 +100,8 @@ export const PdfUploader: React.FC<PdfUploaderProps> = ({
 
       setParsedResult(data);
     } catch (err: any) {
-      setUploadError(err.message || "Failed to parse pasted text");
+      console.error("Pasted text parsing error:", err);
+      setUploadError(err.message || "Failed to parse pasted statement text.");
     } finally {
       setIsUploading(false);
     }
@@ -114,15 +115,18 @@ export const PdfUploader: React.FC<PdfUploaderProps> = ({
     }
   };
 
-  const handleApply = () => {
-    if (parsedResult && parsedResult.transactions.length > 0) {
-      const pName =
-        parsedResult.accountInfo?.investorName
-          ? `${parsedResult.accountInfo.investorName}'s Portfolio`
-          : fileName.replace(/\.pdf$/i, "") || "Vested Portfolio";
-      onTransactionsLoaded(parsedResult.transactions, pName);
-      onClose();
+  const handleConfirmTransactions = () => {
+    if (!parsedResult || parsedResult.transactions.length === 0) return;
+
+    let portName = fileName.replace(/\.[^/.]+$/, "");
+    if (!portName || portName === "Pasted Statement Activity") {
+      portName = parsedResult.accountInfo?.investorName
+        ? `${parsedResult.accountInfo.investorName}'s Portfolio`
+        : "Imported Vested Portfolio";
     }
+
+    onTransactionsLoaded(parsedResult.transactions, portName);
+    onClose();
   };
 
   const handleLoadSample = () => {
@@ -148,15 +152,15 @@ export const PdfUploader: React.FC<PdfUploaderProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20">
-              <FileText className="h-5 w-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20">
+              <FileSpreadsheet className="h-5 w-5" />
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">
-                Import Vested Statement
+                Import Vested Spreadsheet
               </h2>
               <p className="text-xs text-slate-400">
-                Upload your Vested PDF statement or paste transaction activity rows
+                Upload your Vested Excel (.xlsx, .xls), Apple Numbers (.numbers), or CSV export
               </p>
             </div>
           </div>
@@ -175,18 +179,18 @@ export const PdfUploader: React.FC<PdfUploaderProps> = ({
               onClick={() => setActiveTab("file")}
               className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition ${
                 activeTab === "file"
-                  ? "border-blue-500 text-blue-400"
+                  ? "border-emerald-500 text-emerald-400"
                   : "border-transparent text-slate-400 hover:text-white"
               }`}
             >
               <Upload className="h-3.5 w-3.5" />
-              <span>Upload PDF / Excel / CSV</span>
+              <span>Upload Excel / Numbers / CSV</span>
             </button>
             <button
               onClick={() => setActiveTab("paste")}
               className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition ${
                 activeTab === "paste"
-                  ? "border-blue-500 text-blue-400"
+                  ? "border-emerald-500 text-emerald-400"
                   : "border-transparent text-slate-400 hover:text-white"
               }`}
             >
@@ -210,14 +214,14 @@ export const PdfUploader: React.FC<PdfUploaderProps> = ({
               onClick={() => fileInputRef.current?.click()}
               className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition cursor-pointer ${
                 isDragging
-                  ? "border-blue-500 bg-blue-500/10"
+                  ? "border-emerald-500 bg-emerald-500/10"
                   : "border-slate-700 bg-slate-800/40 hover:border-slate-600 hover:bg-slate-800/70"
               }`}
             >
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".numbers,.xlsx,.xls,.csv,.pdf,.txt"
+                accept=".xlsx,.xls,.numbers,.csv,.txt"
                 onChange={(e) => {
                   if (e.target.files && e.target.files.length > 0) {
                     handleFileSelect(e.target.files[0]);
@@ -228,24 +232,24 @@ export const PdfUploader: React.FC<PdfUploaderProps> = ({
 
               {isUploading ? (
                 <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="h-10 w-10 animate-spin text-blue-400" />
+                  <Loader2 className="h-10 w-10 animate-spin text-emerald-400" />
                   <p className="text-sm font-medium text-slate-200">
-                    Extracting & Parsing Vested Transactions...
+                    Parsing Vested Spreadsheet Sheets...
                   </p>
                   <p className="text-xs text-slate-400">
-                    Reading trades, transfers, dividends, and holdings
+                    Extracting Trades, Transfers, Income, and Ledger Balances
                   </p>
                 </div>
               ) : (
                 <>
-                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20">
-                    <Upload className="h-7 w-7" />
+                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20">
+                    <FileSpreadsheet className="h-7 w-7" />
                   </div>
                   <p className="text-sm font-medium text-white">
-                    Click to browse or drag & drop statement
+                    Click to browse or drag & drop Excel / Numbers file
                   </p>
                   <p className="mt-1 text-xs text-slate-400">
-                    Supports Apple Numbers (.numbers), Excel (.xlsx), PDF, or CSV exports
+                    Supports Excel (.xlsx, .xls), Apple Numbers (.numbers), and CSV exports
                   </p>
                 </>
               )}
@@ -259,7 +263,7 @@ export const PdfUploader: React.FC<PdfUploaderProps> = ({
                 <span>Paste your statement table or transaction log:</span>
                 <button
                   onClick={handleLoadSnippetExample}
-                  className="text-blue-400 hover:text-blue-300 underline"
+                  className="text-emerald-400 hover:text-emerald-300 underline"
                 >
                   Insert Sample Snippet
                 </button>
@@ -270,13 +274,13 @@ export const PdfUploader: React.FC<PdfUploaderProps> = ({
                 onChange={(e) => setPastedText(e.target.value)}
                 placeholder="Date Time (in UTC) Type Amount (in USD) Account Balance (in USD) Comment&#10;2026-08-24 02:37:21 PM SPUR 509.8 30.61 Meta Platforms Inc Market Buy&#10;2026-08-21 02:02:40 PM SPUR 551.26 540.41 Meta Platforms Inc Market Buy&#10;2026-08-21 01:59:52 PM CSR 1000 1091.67 Deposit..."
                 rows={7}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 font-mono text-xs text-slate-200 placeholder-slate-600 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 font-mono text-xs text-slate-200 placeholder-slate-600 focus:border-emerald-500 focus:outline-none"
               />
 
               <button
                 onClick={handleParsePastedText}
                 disabled={isUploading || !pastedText.trim()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-xs font-semibold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-500 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-semibold text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-500 disabled:opacity-50"
               >
                 {isUploading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -306,15 +310,15 @@ export const PdfUploader: React.FC<PdfUploaderProps> = ({
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="h-6 w-6 text-emerald-400" />
                   <div>
-                    <p className="text-sm font-semibold text-emerald-200">
-                      Successfully Parsed Statement
-                    </p>
+                    <h3 className="text-sm font-semibold text-white">
+                      Successfully parsed {parsedResult.transactions.length} transactions
+                    </h3>
                     <p className="text-xs text-slate-300">
-                      Found {parsedResult.totalTransactionsParsed} transactions in{" "}
-                      <span className="font-mono text-white">{fileName}</span>
+                      {fileName}
                     </p>
                   </div>
                 </div>
+
                 <button
                   onClick={() => {
                     setParsedResult(null);
@@ -322,132 +326,106 @@ export const PdfUploader: React.FC<PdfUploaderProps> = ({
                   }}
                   className="text-xs text-slate-400 hover:text-white underline"
                 >
-                  Change File
+                  Choose another file
                 </button>
               </div>
 
               {/* Transactions Preview Table */}
-              <div className="rounded-xl border border-slate-800 bg-slate-950/60 overflow-hidden">
-                <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2 text-xs text-slate-400">
-                  <span className="font-semibold text-slate-300">
-                    Preview Parsed Transactions ({parsedResult.transactions.length})
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs text-slate-400">
+                  <span className="font-semibold text-slate-200">
+                    Preview of Extracted Transactions:
                   </span>
-                  {parsedResult.rawTextPreview && (
-                    <button
-                      onClick={() => setShowRawText(!showRawText)}
-                      className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
+                  <span>Total: {parsedResult.transactions.length} rows</span>
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-1.5 font-mono text-xs">
+                  {parsedResult.transactions.slice(0, 10).map((tx) => (
+                    <div
+                      key={tx.id}
+                      className="flex items-center justify-between rounded-lg bg-slate-900/80 px-3 py-1.5 border border-slate-800/60 text-[11px]"
                     >
-                      <Eye className="h-3 w-3" />
-                      {showRawText ? "Hide Raw" : "Inspect Raw"}
-                    </button>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">{tx.date}</span>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                            tx.type === "BUY"
+                              ? "bg-emerald-500/20 text-emerald-400"
+                              : tx.type === "SELL"
+                              ? "bg-rose-500/20 text-rose-400"
+                              : tx.type === "DEPOSIT"
+                              ? "bg-blue-500/20 text-blue-400"
+                              : "bg-purple-500/20 text-purple-400"
+                          }`}
+                        >
+                          {tx.type}
+                        </span>
+                        <span className="font-bold text-white">{tx.symbol}</span>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {tx.shares > 0 && (
+                          <span className="text-slate-400">
+                            {tx.shares} shs @ ${tx.price.toFixed(2)}
+                          </span>
+                        )}
+                        <span
+                          className={`font-semibold ${
+                            tx.amount >= 0 ? "text-emerald-400" : "text-slate-300"
+                          }`}
+                        >
+                          {formatCurrency(tx.amount)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {parsedResult.transactions.length > 10 && (
+                    <p className="text-center text-[10px] text-slate-500 pt-1">
+                      + {parsedResult.transactions.length - 10} more transactions...
+                    </p>
                   )}
                 </div>
-
-                {showRawText ? (
-                  <pre className="max-h-48 overflow-y-auto p-3 text-[11px] font-mono text-slate-400 whitespace-pre-wrap">
-                    {parsedResult.rawTextPreview}
-                  </pre>
-                ) : (
-                  <div className="max-h-56 overflow-y-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="border-b border-slate-800/80 bg-slate-900/80 text-[11px] text-slate-400">
-                        <tr>
-                          <th className="px-3 py-1.5">Date</th>
-                          <th className="px-3 py-1.5">Symbol</th>
-                          <th className="px-3 py-1.5">Type</th>
-                          <th className="px-3 py-1.5 text-right">Shares</th>
-                          <th className="px-3 py-1.5 text-right">Price</th>
-                          <th className="px-3 py-1.5 text-right">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/50 text-slate-200">
-                        {parsedResult.transactions.map((t, idx) => (
-                          <tr key={t.id || idx} className="hover:bg-slate-800/40">
-                            <td className="px-3 py-1.5 text-slate-400">{t.date}</td>
-                            <td className="px-3 py-1.5 font-semibold text-white">{t.symbol}</td>
-                            <td className="px-3 py-1.5">
-                              <span
-                                className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                                  t.type === "BUY"
-                                    ? "bg-blue-500/20 text-blue-300"
-                                    : t.type === "SELL"
-                                    ? "bg-emerald-500/20 text-emerald-300"
-                                    : t.type === "DIVIDEND"
-                                    ? "bg-purple-500/20 text-purple-300"
-                                    : "bg-amber-500/20 text-amber-300"
-                                }`}
-                              >
-                                {t.type}
-                              </span>
-                            </td>
-                            <td className="px-3 py-1.5 text-right font-mono">
-                              {t.shares > 0 ? t.shares.toFixed(4) : "-"}
-                            </td>
-                            <td className="px-3 py-1.5 text-right font-mono">
-                              {t.price > 0 ? formatCurrency(t.price) : "-"}
-                            </td>
-                            <td
-                              className={`px-3 py-1.5 text-right font-mono font-medium ${
-                                t.amount >= 0 ? "text-emerald-400" : "text-rose-400"
-                              }`}
-                            >
-                              {formatCurrency(t.amount, { showPlusSign: true })}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Demo Fallback Option */}
-          {!parsedResult && (
-            <div className="rounded-xl border border-slate-800 bg-gradient-to-r from-blue-950/20 to-purple-950/20 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
-                    <Sparkles className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-white">
-                      Try our preloaded sample portfolio
-                    </p>
-                    <p className="text-[11px] text-slate-400">
-                      2+ years of DCA history in AAPL, NVDA, MSFT, TSLA, and VOO.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleLoadSample}
-                  className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition"
-                >
-                  <span>Load Demo</span>
-                  <ArrowRight className="h-3 w-3" />
-                </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-slate-800 px-6 py-3.5 bg-slate-900/80">
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
-          >
-            Cancel
-          </button>
-          {parsedResult && parsedResult.transactions.length > 0 && (
-            <button
-              onClick={handleApply}
-              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500"
-            >
-              <span>Apply & Analyze Portfolio</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
+        {/* Footer Actions */}
+        <div className="flex items-center justify-between border-t border-slate-800 bg-slate-950/70 px-6 py-4">
+          {!parsedResult ? (
+            <>
+              <button
+                onClick={handleLoadSample}
+                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                <span>Load Sample Data</span>
+              </button>
+
+              <button
+                onClick={onClose}
+                className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setParsedResult(null)}
+                className="text-xs text-slate-400 hover:text-slate-200"
+              >
+                Back to Upload
+              </button>
+
+              <button
+                onClick={handleConfirmTransactions}
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-500 transition"
+              >
+                <span>Calculate & Load Dashboard</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </>
           )}
         </div>
       </div>

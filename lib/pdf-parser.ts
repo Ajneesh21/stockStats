@@ -378,6 +378,8 @@ export function parseVestedStatementText(rawText: string): ParsedPdfResult {
       }
     }
 
+    const accountBalance = parsedNumbers.length >= 2 ? parsedNumbers[1] : undefined;
+
     if (detectedType === "DEPOSIT" || detectedType === "WITHDRAWAL") {
       const amount = parsedNumbers[0] || 0;
       if (amount !== 0) {
@@ -389,6 +391,7 @@ export function parseVestedStatementText(rawText: string): ParsedPdfResult {
           shares: 0,
           price: 1,
           amount: detectedType === "DEPOSIT" ? Math.abs(amount) : -Math.abs(amount),
+          accountBalance,
           notes: line,
         });
       }
@@ -403,6 +406,7 @@ export function parseVestedStatementText(rawText: string): ParsedPdfResult {
           shares: 0,
           price: 0,
           amount: Math.abs(amount),
+          accountBalance,
           notes: line,
         });
       }
@@ -440,6 +444,7 @@ export function parseVestedStatementText(rawText: string): ParsedPdfResult {
           shares: shares > 0 ? shares : 1,
           price: price > 0 ? price : amount,
           amount: detectedType === "BUY" ? -Math.abs(amount) : Math.abs(amount),
+          accountBalance,
           notes: line,
         });
       }

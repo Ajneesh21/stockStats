@@ -102,10 +102,18 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
       {/* Main KPI Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Total Portfolio Valuation */}
+        {/* Card 1: Stock Portfolio Valuation */}
         <div className="group relative rounded-2xl border border-slate-800/80 bg-gradient-to-b from-slate-900 to-slate-900/90 p-5 shadow-lg shadow-black/20 hover:border-slate-700 transition">
           <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span className="font-medium">Total Portfolio Value</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-slate-200">Stock Holdings Value</span>
+              <div
+                className="group/tooltip relative cursor-help"
+                title="Current live market value of your active stock positions. Excludes uninvested cash."
+              >
+                <Info className="h-3.5 w-3.5 text-slate-500 hover:text-slate-300 transition" />
+              </div>
+            </div>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
               <Wallet className="h-4 w-4" />
             </div>
@@ -113,7 +121,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="mt-2 text-2xl font-extrabold tracking-tight text-white font-mono">
             {formatCurrency(summary.totalValue)}
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs">
+          <div className="mt-2 flex items-center justify-between text-xs pt-1 border-t border-slate-800/50">
             <div className="flex items-center gap-1 text-slate-400">
               <span>Day:</span>
               <span
@@ -130,7 +138,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 {formatPercent(totalDayChangePercent)})
               </span>
             </div>
-            <span className="text-slate-500 font-mono">
+            <span className="inline-flex items-center gap-1 rounded-md bg-slate-800/80 px-2 py-0.5 font-mono text-[11px] font-medium text-slate-300 border border-slate-700/60" title="Separate uninvested buying power / cash">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               Cash: {formatCurrency(summary.cashBalance)}
             </span>
           </div>

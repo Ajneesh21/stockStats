@@ -46,10 +46,6 @@ export const AssetAllocation: React.FC<AssetAllocationProps> = ({
     sectorMap[s].count += 1;
   });
 
-  if (cashBalance > 0) {
-    sectorMap["Cash & Equivalents"] = { value: cashBalance, count: 1 };
-  }
-
   const sectorData = Object.entries(sectorMap)
     .map(([name, data]) => ({
       name,
@@ -67,16 +63,6 @@ export const AssetAllocation: React.FC<AssetAllocationProps> = ({
     percent: h.portfolioWeight,
     color: STOCK_COLORS[i % STOCK_COLORS.length],
   }));
-
-  if (cashBalance > 0) {
-    stockData.push({
-      name: "CASH",
-      companyName: "Uninvested Cash Balance",
-      value: Number(cashBalance.toFixed(2)),
-      percent: totalValue > 0 ? (cashBalance / totalValue) * 100 : 0,
-      color: "#64748b",
-    });
-  }
 
   return (
     <div

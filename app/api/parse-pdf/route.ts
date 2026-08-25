@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import pdfParse from "pdf-parse";
 import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
@@ -30,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // Case 2: Multipart Form Data with PDF, Numbers, XLSX, CSV, or TXT file
+    // Case 2: Multipart Form Data with XLSX, Numbers, CSV, or XLS file
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
@@ -45,7 +44,7 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // If Apple Numbers (.numbers) file
+    // 1. If Apple Numbers (.numbers) file
     if (fileName.endsWith(".numbers")) {
       try {
         const tempId = `numbers-${Date.now()}`;
@@ -93,7 +92,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If Excel file (.xlsx or .xls)
+    // 2. If Excel file (.xlsx or .xls)
     if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
       try {
         const workbook = XLSX.read(buffer, { type: "buffer" });
@@ -115,41 +114,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // If CSV or text file
+    // 3. If CSV or text file
     if (fileName.endsWith(".csv") || fileName.endsWith(".txt")) {
       const text = buffer.toString("utf-8");
-      const result = parseVestedStatementText(text);
-      return NextResponse.json(result);
+
+      // Try multi-sheet or single sheet CSV
+      const result = parseVestedSpreadsheetSheets({ "Transactions.csv": text });
+      if (result.success && result.transactions.length > 0) {
+        return NextResponse.json(result);
+      }
+
+      const parsedTextResult = parseVestedStatementText(text);
+      return NextResponse.json(parsedTextResult);
     }
 
-    // PDF file
-    const pdfData = await pdfParse(buffer);
-    const rawText = pdfData.text || "";
-
-    if (!rawText.trim()) {
-      return NextResponse.json(
-        {
-          error:
-            "Could not extract text from PDF. The PDF might be scanned or password protected.",
-        },
-        { status: 422 }
-      );
-    }
-
-    const result = parseVestedStatementText(rawText);
-
-    return NextResponse.json({
-      ...result,
-      numPages: pdfData.numpages,
-      info: pdfData.info,
-    });
-  } catch (err: any) {
-    console.error("[Parse API Error]:", err);
+    // Unsupported format
     return NextResponse.json(
       {
-        error: "Failed to parse document",
-        details: err?.message || String(err),
+        error:
+          "Please upload an Excel (.xlsx, .xls), Apple Numbers (.numbers), or CSV file.",
       },
+      { status: 400 }
+    );
+  } catch (err: any) {
+    console.error("[Statement Upload Route Error]:", err);
+    return NextResponse.json(
+      { error: "Failed to process statement file", details: err?.message },
       { status: 500 }
     );
   }

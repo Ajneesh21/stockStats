@@ -256,17 +256,23 @@ export async function computePortfolioSummary(
     });
   });
 
-  // Calculate total portfolio value (Holdings + Uninvested Cash)
-  const normalizedCash = Math.max(0, cashBalance);
-  const totalValue = totalHoldingsValue + normalizedCash;
+  // Calculate final cash balance / buying power
+  let explicitAccountBalance: number | undefined;
+  for (let i = sortedTx.length - 1; i >= 0; i--) {
+    if (typeof sortedTx[i].accountBalance === "number" && !isNaN(sortedTx[i].accountBalance!)) {
+      explicitAccountBalance = sortedTx[i].accountBalance;
+      break;
+    }
+  }
 
-  // Net Invested Capital
-  const recordedNetDeposits = Math.max(0, totalDeposits - totalWithdrawals);
-  const requiredCapitalForHoldings = totalCostBasis + normalizedCash;
-  const netInvestedCapital =
-    recordedNetDeposits > 0 ? recordedNetDeposits : requiredCapitalForHoldings;
+  const normalizedCash =
+    explicitAccountBalance !== undefined ? explicitAccountBalance : Math.max(0, cashBalance);
 
-  // Assign portfolio weights
+  // Total Portfolio Value is the market value of active stock holdings (Cash is tracked separately)
+  const totalValue = totalHoldingsValue;
+  const netInvestedCapital = totalCostBasis > 0 ? totalCostBasis : totalHoldingsValue;
+
+  // Assign portfolio weights based on stock holdings value
   holdings.forEach((h) => {
     h.portfolioWeight =
       totalValue > 0 ? Number(((h.currentValue / totalValue) * 100).toFixed(2)) : 0;
