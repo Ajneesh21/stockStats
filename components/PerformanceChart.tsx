@@ -56,8 +56,9 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
   }, [timeline, timeframe]);
 
   // Smart date formatter for X-axis ticks
-  const formatXAxisDate = (dateStr: string) => {
-    if (!dateStr) return "";
+  const formatXAxisDate = (dateVal?: any) => {
+    if (!dateVal) return "";
+    const dateStr = String(dateVal);
     const todayStr = new Date().toISOString().split("T")[0];
     if (dateStr === todayStr) return "Today";
 
@@ -78,8 +79,9 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
     return formatDate(dateStr, "MMM yy");
   };
 
-  const formatTooltipDate = (dateStr: string) => {
-    if (!dateStr) return "";
+  const formatTooltipDate = (dateVal?: any) => {
+    if (!dateVal) return "";
+    const dateStr = String(dateVal);
     const todayStr = new Date().toISOString().split("T")[0];
     if (dateStr === todayStr) {
       return `Today (${formatDate(dateStr, "MMM d, yyyy")})`;

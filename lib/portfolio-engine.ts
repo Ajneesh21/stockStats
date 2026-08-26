@@ -26,8 +26,16 @@ export async function computePortfolioSummary(
     return createEmptyPortfolioSummary();
   }
 
+  // Filter out any legacy synthetic initialization transactions if real activity exists
+  const hasRealDeposits = transactions.some(
+    (t) => t.type === "DEPOSIT" && !t.id.startsWith("tx-init")
+  );
+  const sanitizedTx = hasRealDeposits
+    ? transactions.filter((t) => !t.id.startsWith("tx-init"))
+    : transactions;
+
   // Sort transactions chronologically
-  const sortedTx = [...transactions].sort((a, b) =>
+  const sortedTx = [...sanitizedTx].sort((a, b) =>
     a.date.localeCompare(b.date)
   );
 
@@ -191,6 +199,7 @@ export async function computePortfolioSummary(
       });
     } else if (type === "FEE" || type === "TAX") {
       const amt = Math.abs(tx.amount || fee);
+      totalFees += amt;
       cashBalance -= amt;
     }
   }

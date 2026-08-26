@@ -8,11 +8,12 @@ import {
   Calculator,
   ShieldAlert,
   Percent,
-  Layers,
-  ArrowUpRight,
-  ArrowDownRight,
   Receipt,
   FileCheck,
+  CreditCard,
+  Scale,
+  TrendingDown,
+  DollarSign,
 } from "lucide-react";
 
 interface MetricsDetailProps {
@@ -20,9 +21,81 @@ interface MetricsDetailProps {
 }
 
 export const MetricsDetail: React.FC<MetricsDetailProps> = ({ summary }) => {
+  const feePercentOfInvested =
+    summary.netInvestedCapital > 0
+      ? (summary.totalFees / summary.netInvestedCapital) * 100
+      : 0;
+
   return (
     <div className="space-y-6">
-      {/* 1. TWR Sub-Periods Audit Table */}
+      {/* 1. Commission Charges & Brokerage Expenses Section */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-xl space-y-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-amber-400" />
+              Total Commission Charges & Brokerage Fees
+            </h3>
+            <p className="text-xs text-slate-400">
+              Total transaction commissions, exchange fees, and tax withholdings deducted by the broker
+            </p>
+          </div>
+          <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-1 text-xs font-mono font-bold text-amber-400">
+            Total Paid: {formatCurrency(summary.totalFees)}
+          </div>
+        </div>
+
+        {/* 3 Fee KPI Cards */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {/* Card 1: Total Commissions & Fees */}
+          <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-4">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>Total Fees & Commissions</span>
+              <CreditCard className="h-4 w-4 text-amber-400" />
+            </div>
+            <div className="mt-2 text-xl font-bold font-mono text-white">
+              {formatCurrency(summary.totalFees)}
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Commission per order + ADR / regulatory fees
+            </p>
+          </div>
+
+          {/* Card 2: Fee Impact / Performance Drag */}
+          <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-4">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>Fee Drag on Portfolio</span>
+              <TrendingDown className="h-4 w-4 text-rose-400" />
+            </div>
+            <div className="mt-2 text-xl font-bold font-mono text-rose-400">
+              {formatPercent(-feePercentOfInvested)}
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Percentage of total invested capital
+            </p>
+          </div>
+
+          {/* Card 3: Net Profit After Fees */}
+          <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-4">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>Net Realized Capital Gain</span>
+              <DollarSign className="h-4 w-4 text-emerald-400" />
+            </div>
+            <div
+              className={`mt-2 text-xl font-bold font-mono ${
+                summary.realizedPnL >= 0 ? "text-emerald-400" : "text-rose-400"
+              }`}
+            >
+              {formatCurrency(summary.realizedPnL, { showPlusSign: true })}
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Net of all trade commissions & cost basis
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. TWR Sub-Periods Audit Table */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-xl space-y-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -31,7 +104,7 @@ export const MetricsDetail: React.FC<MetricsDetailProps> = ({ summary }) => {
               Time-Weighted Return (TWR) Sub-Periods Breakdown
             </h3>
             <p className="text-xs text-slate-400">
-              Each sub-period is divided by cash flow events to eliminate deposit/withdrawal timing bias
+              Evaluates compounding performance from your first stock purchase date
             </p>
           </div>
           <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 px-3 py-1 text-xs font-mono text-blue-300">
@@ -46,9 +119,9 @@ export const MetricsDetail: React.FC<MetricsDetailProps> = ({ summary }) => {
                 <th className="px-3 py-2.5">Sub-Period</th>
                 <th className="px-3 py-2.5">Start Date</th>
                 <th className="px-3 py-2.5">End Date</th>
-                <th className="px-3 py-2.5 text-right">Start NAV</th>
+                <th className="px-3 py-2.5 text-right">Start Cost Basis</th>
                 <th className="px-3 py-2.5 text-right">Cash Flow</th>
-                <th className="px-3 py-2.5 text-right">End NAV</th>
+                <th className="px-3 py-2.5 text-right">End Stock Valuation</th>
                 <th className="px-3 py-2.5 text-right">Period Return (%)</th>
                 <th className="px-3 py-2.5 text-right">Cumulative TWR</th>
               </tr>
@@ -100,14 +173,14 @@ export const MetricsDetail: React.FC<MetricsDetailProps> = ({ summary }) => {
                           isPeriodPositive ? "text-emerald-400" : "text-rose-400"
                         }`}
                       >
-                        {formatPercent(sp.periodReturn)}
+                        {formatPercent(sp.periodReturn * 100)}
                       </td>
                       <td
-                        className={`px-3 py-2.5 text-right font-mono font-extrabold ${
+                        className={`px-3 py-2.5 text-right font-mono font-bold ${
                           isCumPositive ? "text-emerald-400" : "text-rose-400"
                         }`}
                       >
-                        {formatPercent(sp.cumulativeTWR)}
+                        {formatPercent(sp.cumulativeTWR * 100)}
                       </td>
                     </tr>
                   );
@@ -118,26 +191,21 @@ export const MetricsDetail: React.FC<MetricsDetailProps> = ({ summary }) => {
         </div>
       </div>
 
-      {/* 2. Realized Capital Gains & Tax Ledger */}
+      {/* 3. Realized Trades & Capital Gains Tax Table */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-xl space-y-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Receipt className="h-4 w-4 text-emerald-400" />
-              Realized Capital Gains & Tax Report
+              <FileCheck className="h-4 w-4 text-emerald-400" />
+              Realized Trades & Capital Gains Tax Breakdown
             </h3>
             <p className="text-xs text-slate-400">
-              FIFO matched sell executions with short-term vs long-term tax classification
+              Tax categorization for Indian foreign equity taxation (&gt;24 months = Long Term at 20% with indexation or 12.5% new regime)
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-slate-400">Total Realized P&L:</span>
-            <span
-              className={`font-bold ${
-                summary.realizedPnL >= 0 ? "text-emerald-400" : "text-rose-400"
-              }`}
-            >
-              {formatCurrency(summary.realizedPnL, { showPlusSign: true })}
+          <div className="flex items-center gap-2">
+            <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-mono font-bold text-emerald-400">
+              Total Realized Gain: {formatCurrency(summary.realizedPnL, { showPlusSign: true })}
             </span>
           </div>
         </div>
@@ -212,6 +280,51 @@ export const MetricsDetail: React.FC<MetricsDetailProps> = ({ summary }) => {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* 4. Portfolio Volatility & Risk Metrics */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {/* Sharpe Ratio */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl">
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <span className="font-semibold">Sharpe Ratio</span>
+            <Activity className="h-4 w-4 text-blue-400" />
+          </div>
+          <div className="mt-2 text-2xl font-bold font-mono text-white">
+            {summary.sharpeRatio.toFixed(2)}
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Excess return per unit of portfolio volatility (Risk-free: 4.5%)
+          </p>
+        </div>
+
+        {/* Max Drawdown */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl">
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <span className="font-semibold">Maximum Drawdown</span>
+            <ShieldAlert className="h-4 w-4 text-rose-400" />
+          </div>
+          <div className="mt-2 text-2xl font-bold font-mono text-rose-400">
+            -{summary.maxDrawdown.toFixed(2)}%
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Peak-to-trough decline over holding period
+          </p>
+        </div>
+
+        {/* Annualized Volatility */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl">
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <span className="font-semibold">Annualized Volatility</span>
+            <Percent className="h-4 w-4 text-purple-400" />
+          </div>
+          <div className="mt-2 text-2xl font-bold font-mono text-purple-400">
+            {summary.volatility.toFixed(2)}%
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Standard deviation of daily portfolio returns (annualized)
+          </p>
         </div>
       </div>
     </div>

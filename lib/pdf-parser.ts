@@ -480,7 +480,8 @@ export function parseVestedStatementText(rawText: string): ParsedPdfResult {
       });
     }
 
-    if (initialDepositTotal > 0) {
+    const hasRealDeposits = transactions.some((t) => t.type === "DEPOSIT");
+    if (initialDepositTotal > 0 && !hasRealDeposits) {
       transactions.unshift({
         id: `tx-init-cash-${txCounter++}`,
         date: initDate,

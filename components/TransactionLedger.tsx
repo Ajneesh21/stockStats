@@ -15,6 +15,7 @@ import {
   FileText,
   Trash2,
   Edit2,
+  Receipt,
 } from "lucide-react";
 
 interface TransactionLedgerProps {
@@ -56,6 +57,10 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
       });
   }, [transactions, search, filterType, sortDesc]);
 
+  const totalCommissions = useMemo(() => {
+    return transactions.reduce((sum, t) => sum + (t.fee || 0), 0);
+  }, [transactions]);
+
   const typePills = [
     { label: "All Activity", value: "ALL" },
     { label: "Buys", value: "BUY" },
@@ -75,12 +80,17 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
             Transaction Ledger ({transactions.length} Records)
           </h3>
           <p className="text-xs text-slate-400">
-            Chronological audit trail of all orders, deposits, and dividend payments
+            Chronological audit trail of all orders, deposits, dividend payments, and commission charges
           </p>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-1 text-xs font-mono font-medium text-amber-400">
+            <Receipt className="h-3.5 w-3.5" />
+            <span>Total Fees: {formatCurrency(totalCommissions)}</span>
+          </div>
+
           <button
             onClick={onExportCsv}
             className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-slate-700 hover:text-white"
@@ -98,9 +108,21 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
         </div>
       </div>
 
-      {/* Filter Ribbon */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-y border-slate-800/80 py-3">
-        {/* Type Filter Buttons */}
+      {/* Filter Bar & Search Input */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Search */}
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search symbol, notes, or activity..."
+            className="w-full rounded-xl border border-slate-800 bg-slate-950/80 pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        {/* Type Filter Pills */}
         <div className="flex flex-wrap items-center gap-1.5">
           {typePills.map((pill) => (
             <button
@@ -109,30 +131,18 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
                 filterType === pill.value
                   ? "bg-blue-600 text-white shadow-sm"
-                  : "bg-slate-950/60 text-slate-400 border border-slate-800 hover:text-slate-200"
+                  : "bg-slate-800 text-slate-400 hover:text-slate-200"
               }`}
             >
               {pill.label}
             </button>
           ))}
         </div>
-
-        {/* Search Input */}
-        <div className="relative w-full sm:w-60">
-          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search transactions..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-800 bg-slate-950/80 pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
-          />
-        </div>
       </div>
 
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-slate-800/80 bg-slate-950/60">
-        <table className="w-full text-left text-xs">
+        <table className="w-full text-left text-xs min-w-[750px]">
           <thead className="border-b border-slate-800 bg-slate-900/80 text-slate-400 text-[11px]">
             <tr>
               <th
@@ -146,6 +156,7 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
               <th className="px-3 py-3 text-right">Shares</th>
               <th className="px-3 py-3 text-right">Price</th>
               <th className="px-3 py-3 text-right">Cash Flow ($)</th>
+              <th className="px-3 py-3 text-right">Commission</th>
               <th className="px-3 py-3">Notes</th>
               <th className="px-3 py-3 text-right">Actions</th>
             </tr>
@@ -153,7 +164,7 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
           <tbody className="divide-y divide-slate-800/60 text-slate-200">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-slate-500 text-xs">
+                <td colSpan={9} className="py-8 text-center text-slate-500 text-xs">
                   No matching transactions found.
                 </td>
               </tr>
@@ -213,6 +224,11 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
                       }`}
                     >
                       {formatCurrency(tx.amount, { showPlusSign: true })}
+                    </td>
+
+                    {/* Commission Fee */}
+                    <td className="px-3 py-3 text-right font-mono text-amber-400/90">
+                      {tx.fee && tx.fee > 0 ? formatCurrency(tx.fee) : "-"}
                     </td>
 
                     {/* Notes */}

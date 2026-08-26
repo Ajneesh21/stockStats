@@ -27,9 +27,9 @@ import {
 
 type TabId =
   | "overview"
-  | "benchmarks"
   | "holdings"
   | "allocation"
+  | "benchmarks"
   | "ledger"
   | "metrics";
 
@@ -68,15 +68,13 @@ export default function Home() {
           body: JSON.stringify({ transactions: txList }),
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.summary) {
-            setSummary(data.summary);
-            setLastUpdated(new Date().toLocaleTimeString());
-          }
+        const data = await res.json();
+        if (data.summary) {
+          setSummary(data.summary);
+          setLastUpdated(new Date().toLocaleTimeString());
         }
       } catch (err) {
-        console.error("Calculation error:", err);
+        console.error("Failed to calculate portfolio:", err);
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
@@ -85,112 +83,110 @@ export default function Home() {
     []
   );
 
-  // Fetch all saved portfolios on mount
+  // Load portfolios on mount
   useEffect(() => {
-    const fetchPortfolios = async () => {
+    async function loadInitialData() {
       try {
         const res = await fetch("/api/portfolios");
-        if (res.ok) {
-          const data = await res.json();
-          const list: StoredPortfolio[] = data.portfolios || [];
-          setPortfolios(list);
+        const data = await res.json();
+        const storedList: StoredPortfolio[] = data.portfolios || [];
 
-          if (list.length > 0) {
-            // Pick active or first
-            const active = list.find((p) => p.isDefault) || list[0];
-            setCurrentPortfolioId(active.id);
-            setPortfolioName(active.name);
-            setTransactions(active.transactions);
-            calculatePortfolio(active.transactions, true);
-          } else {
-            // If no portfolio yet, load demo by default so user sees full UI immediately
-            const defaultDemo: StoredPortfolio = {
-              id: "demo-default",
-              name: "Sample Vested US Growth Portfolio",
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              transactions: SAMPLE_VESTED_TRANSACTIONS,
-              isDefault: true,
-            };
-            setPortfolios([defaultDemo]);
-            setCurrentPortfolioId(defaultDemo.id);
-            setPortfolioName(defaultDemo.name);
-            setTransactions(defaultDemo.transactions);
-            calculatePortfolio(defaultDemo.transactions, true);
-          }
+        if (storedList.length > 0) {
+          setPortfolios(storedList);
+          const defaultPort = storedList.find((p) => p.isDefault) || storedList[0];
+          setCurrentPortfolioId(defaultPort.id);
+          setPortfolioName(defaultPort.name);
+          setTransactions(defaultPort.transactions);
+          calculatePortfolio(defaultPort.transactions, true);
+        } else {
+          // If no stored portfolios, start empty or prompt user
+          setIsLoading(false);
         }
       } catch (err) {
-        console.error("Failed to load saved portfolios:", err);
+        console.error("Failed to load stored portfolios:", err);
         setIsLoading(false);
       }
-    };
+    }
 
-    fetchPortfolios();
+    loadInitialData();
   }, [calculatePortfolio]);
 
-  // Select a different portfolio
-  const handleSelectPortfolio = (id: string) => {
+  // Handle Portfolio Selection
+  const handleSelectPortfolio = async (id: string) => {
     const p = portfolios.find((item) => item.id === id);
     if (p) {
       setCurrentPortfolioId(p.id);
       setPortfolioName(p.name);
       setTransactions(p.transactions);
       calculatePortfolio(p.transactions, true);
+
+      // Persist active default in background
+      try {
+        await fetch("/api/portfolios", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, isDefault: true }),
+        });
+      } catch (err) {
+        console.error("Failed to set default portfolio:", err);
+      }
     }
   };
 
-  // Rename current portfolio
+  // Handle Portfolio Rename
   const handleRenamePortfolio = async (id: string, newName: string) => {
-    const p = portfolios.find((item) => item.id === id);
-    if (!p) return;
-
-    const updated = { ...p, name: newName };
-    setPortfolioName(newName);
-    setPortfolios((prev) => prev.map((item) => (item.id === id ? updated : item)));
+    setPortfolios((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, name: newName } : item))
+    );
+    if (currentPortfolioId === id) {
+      setPortfolioName(newName);
+    }
 
     try {
       await fetch("/api/portfolios", {
-        method: "POST",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updated),
+        body: JSON.stringify({ id, name: newName }),
       });
     } catch (err) {
       console.error("Failed to rename portfolio:", err);
     }
   };
 
-  // Delete current portfolio
+  // Handle Portfolio Deletion
   const handleDeletePortfolio = async (id: string) => {
-    if (portfolios.length <= 1) return;
+    const remaining = portfolios.filter((item) => item.id !== id);
+    setPortfolios(remaining);
+
+    if (currentPortfolioId === id) {
+      if (remaining.length > 0) {
+        handleSelectPortfolio(remaining[0].id);
+      } else {
+        setCurrentPortfolioId("");
+        setPortfolioName("My Vested Portfolio");
+        setTransactions([]);
+        setSummary(null);
+      }
+    }
 
     try {
       await fetch(`/api/portfolios?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
-
-      const remaining = portfolios.filter((item) => item.id !== id);
-      setPortfolios(remaining);
-
-      if (remaining.length > 0) {
-        const next = remaining[0];
-        setCurrentPortfolioId(next.id);
-        setPortfolioName(next.name);
-        setTransactions(next.transactions);
-        calculatePortfolio(next.transactions, true);
-      }
     } catch (err) {
       console.error("Failed to delete portfolio:", err);
     }
   };
 
-  // Handle Statement Uploaded -> Create & persist new portfolio as default
+  // Handle New Transactions Loaded from Spreadsheet Uploader
   const handleTransactionsLoaded = async (
     newTx: Transaction[],
-    name = "My Vested Statement"
+    name: string
   ) => {
+    const newPortId = `port-${Date.now()}`;
     const newPort: StoredPortfolio = {
-      id: `port-${Date.now()}`,
-      name,
+      id: newPortId,
+      name: name || "Imported Vested Portfolio",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       transactions: newTx,
@@ -203,7 +199,7 @@ export default function Home() {
     setTransactions(newTx);
     calculatePortfolio(newTx, true);
 
-    // Save to persistent storage / Redis
+    // Save to persistent storage
     try {
       await fetch("/api/portfolios", {
         method: "POST",
@@ -249,11 +245,15 @@ export default function Home() {
         setPortfolios((prev) =>
           prev.map((item) => (item.id === currentPortfolioId ? updatedPort : item))
         );
-        await fetch("/api/portfolios", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedPort),
-        });
+        try {
+          await fetch("/api/portfolios", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updatedPort),
+          });
+        } catch (err) {
+          console.error("Failed to save updated portfolio:", err);
+        }
       }
     }
   };
@@ -271,22 +271,25 @@ export default function Home() {
         setPortfolios((prev) =>
           prev.map((item) => (item.id === currentPortfolioId ? updatedPort : item))
         );
-        await fetch("/api/portfolios", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedPort),
-        });
+        try {
+          await fetch("/api/portfolios", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updatedPort),
+          });
+        } catch (err) {
+          console.error("Failed to save portfolio after deleting transaction:", err);
+        }
       }
     }
   };
 
-  // Export to CSV
+  // Export CSV
   const handleExportCsv = () => {
     if (!transactions || transactions.length === 0) return;
 
-    const headers = ["ID", "Date", "Symbol", "Type", "Shares", "Price", "Amount", "Notes"];
+    const headers = ["Date", "Symbol", "Type", "Shares", "Price", "Amount", "Notes"];
     const rows = transactions.map((t) => [
-      t.id,
       t.date,
       t.symbol,
       t.type,
@@ -313,12 +316,12 @@ export default function Home() {
   };
 
   const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: "overview", label: "Overview & Growth", icon: TrendingUp },
-    { id: "benchmarks", label: "Global Benchmarks", icon: Globe },
+    { id: "overview", label: "Performance & Growth", icon: TrendingUp },
     { id: "holdings", label: "Holdings & Live Quotes", icon: Layers },
-    { id: "allocation", label: "Asset Allocation", icon: PieChart },
-    { id: "ledger", label: "Transactions Ledger", icon: FileText },
-    { id: "metrics", label: "TWR & Risk Analytics", icon: Calculator },
+    { id: "allocation", label: "Asset & Sector Allocation", icon: PieChart },
+    { id: "benchmarks", label: "Benchmark Alpha", icon: Globe },
+    { id: "ledger", label: "Transaction Ledger", icon: FileText },
+    { id: "metrics", label: "TWR & Tax Analytics", icon: Calculator },
   ];
 
   return (
@@ -383,41 +386,17 @@ export default function Home() {
           </div>
         ) : summary && transactions.length > 0 ? (
           <div className="space-y-6 animate-in fade-in duration-300">
-            {/* KPI Summary Cards */}
+            {/* Top KPI Cards */}
             <DashboardOverview summary={summary} />
 
-            {/* Tab 1: Overview & Growth Chart */}
+            {/* Tab 1: Performance & Growth Chart */}
             {activeTab === "overview" && (
               <div className="space-y-6">
                 <PerformanceChart timeline={summary.timeline} />
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                  <div className="lg:col-span-2">
-                    <HoldingsTable
-                      holdings={summary.holdings}
-                      totalValue={summary.totalValue}
-                    />
-                  </div>
-                  <div>
-                    <AssetAllocation
-                      holdings={summary.holdings}
-                      cashBalance={summary.cashBalance}
-                      totalValue={summary.totalValue}
-                      layout="vertical"
-                    />
-                  </div>
-                </div>
               </div>
             )}
 
-            {/* Tab 2: Global Benchmarks */}
-            {activeTab === "benchmarks" && (
-              <div className="space-y-6">
-                <BenchmarkComparison summary={summary} />
-                <PerformanceChart timeline={summary.timeline} />
-              </div>
-            )}
-
-            {/* Tab 3: Holdings & Live Quotes */}
+            {/* Tab 2: Holdings & Live Quotes Table */}
             {activeTab === "holdings" && (
               <div className="space-y-6">
                 <HoldingsTable
@@ -427,7 +406,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Tab 4: Asset Allocation */}
+            {/* Tab 3: Asset & Sector Allocation */}
             {activeTab === "allocation" && (
               <div className="space-y-6">
                 <AssetAllocation
@@ -436,6 +415,13 @@ export default function Home() {
                   totalValue={summary.totalValue}
                   layout="grid"
                 />
+              </div>
+            )}
+
+            {/* Tab 4: Global Benchmarks Comparison */}
+            {activeTab === "benchmarks" && (
+              <div className="space-y-6">
+                <BenchmarkComparison summary={summary} />
               </div>
             )}
 
@@ -458,7 +444,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Tab 6: TWR & Risk Metrics */}
+            {/* Tab 6: TWR & Tax Analytics */}
             {activeTab === "metrics" && (
               <div className="space-y-6">
                 <MetricsDetail summary={summary} />
@@ -467,25 +453,25 @@ export default function Home() {
           </div>
         ) : (
           <div className="flex h-96 flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center">
-            <UploadCloud className="h-12 w-12 text-blue-400" />
+            <UploadCloud className="h-12 w-12 text-emerald-400" />
             <div>
               <h3 className="text-base font-bold text-white">
-                No Statement Loaded
+                No Spreadsheet Statement Loaded
               </h3>
               <p className="text-xs text-slate-400 max-w-sm mt-1">
-                Upload your Vested statement PDF or paste activity text to analyze your portfolio.
+                Upload your Vested Excel (.xlsx), Apple Numbers (.numbers), or CSV export to analyze your portfolio.
               </p>
             </div>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsUploadOpen(true)}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-md hover:bg-blue-500"
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-md hover:bg-emerald-500"
               >
-                Upload Statement
+                Upload Spreadsheet
               </button>
               <button
                 onClick={handleLoadDemo}
-                className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white"
+                className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700"
               >
                 Load Sample Data
               </button>
@@ -494,7 +480,7 @@ export default function Home() {
         )}
       </main>
 
-      {/* PDF Upload Modal */}
+      {/* Spreadsheet Upload Modal */}
       <PdfUploader
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}

@@ -202,7 +202,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
             <span>Net Invested:</span>
             <span className="font-mono font-semibold text-slate-200">
-              {formatCurrency(summary.netInvestedCapital)}
+              {formatCurrency(summary.totalDeposits > 0 ? summary.totalDeposits : summary.netInvestedCapital)}
             </span>
           </div>
         </div>
@@ -223,9 +223,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {formatCurrency(summary.unrealizedPnL, { showPlusSign: true })}
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-            <span>Dividends Earned:</span>
-            <span className="font-mono font-semibold text-emerald-400">
-              +{formatCurrency(summary.totalDividends)}
+            <span>
+              Dividends:{" "}
+              <span className="font-mono font-semibold text-emerald-400">
+                +{formatCurrency(summary.totalDividends)}
+              </span>
+            </span>
+            <span title="Total brokerage trading commissions, exchange fees, and taxes deducted">
+              Commissions:{" "}
+              <span className="font-mono font-semibold text-amber-400">
+                -{formatCurrency(summary.totalFees)}
+              </span>
             </span>
           </div>
         </div>
