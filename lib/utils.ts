@@ -32,6 +32,9 @@ export function formatCurrency(
   const absValue = Math.abs(value);
   const sign = value < 0 ? "-" : showPlusSign && value > 0 ? "+" : "";
 
+  if (compact && absValue >= 1_000_000_000) {
+    return `${sign}${prefix}${(absValue / 1_000_000_000).toFixed(2)}B`;
+  }
   if (compact && absValue >= 1_000_000) {
     return `${sign}${prefix}${(absValue / 1_000_000).toFixed(2)}M`;
   }
@@ -45,6 +48,25 @@ export function formatCurrency(
   });
 
   return `${sign}${prefix}${formattedNum}`;
+}
+
+export function formatLargeNumber(value: number | undefined | null, decimals = 2): string {
+  if (value === undefined || value === null || isNaN(value)) return "0";
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1_000_000_000_000) {
+    return `${sign}${(abs / 1_000_000_000_000).toFixed(decimals)}T`;
+  }
+  if (abs >= 1_000_000_000) {
+    return `${sign}${(abs / 1_000_000_000).toFixed(decimals)}B`;
+  }
+  if (abs >= 1_000_000) {
+    return `${sign}${(abs / 1_000_000).toFixed(decimals)}M`;
+  }
+  if (abs >= 1_000) {
+    return `${sign}${(abs / 1_000).toFixed(decimals)}K`;
+  }
+  return `${sign}${abs.toFixed(decimals)}`;
 }
 
 export function formatPercent(

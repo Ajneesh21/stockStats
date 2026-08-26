@@ -14,6 +14,7 @@ import { AssetAllocation } from "@/components/AssetAllocation";
 import { TransactionLedger } from "@/components/TransactionLedger";
 import { MetricsDetail } from "@/components/MetricsDetail";
 import { EditTransactionModal } from "@/components/EditTransactionModal";
+import { DcfCalculator } from "@/components/DcfCalculator";
 import {
   TrendingUp,
   Globe,
@@ -23,6 +24,7 @@ import {
   Calculator,
   Loader2,
   UploadCloud,
+  Scale,
 } from "lucide-react";
 
 type TabId =
@@ -31,7 +33,8 @@ type TabId =
   | "allocation"
   | "benchmarks"
   | "ledger"
-  | "metrics";
+  | "metrics"
+  | "dcf";
 
 export default function Home() {
   const [portfolios, setPortfolios] = useState<StoredPortfolio[]>([]);
@@ -322,6 +325,7 @@ export default function Home() {
     { id: "benchmarks", label: "Benchmark Alpha", icon: Globe },
     { id: "ledger", label: "Transaction Ledger", icon: FileText },
     { id: "metrics", label: "TWR & Tax Analytics", icon: Calculator },
+    { id: "dcf", label: "DCF Valuation & Forecasts", icon: Scale },
   ];
 
   return (
@@ -373,8 +377,22 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Loading Spinner */}
-        {isLoading ? (
+        {/* Tab 7: Dedicated DCF Valuation Calculator (available anytime) */}
+        {activeTab === "dcf" ? (
+          <DcfCalculator
+            defaultTicker={
+              summary?.holdings && summary.holdings.length > 0
+                ? summary.holdings[0].symbol
+                : "AAPL"
+            }
+            portfolioHoldings={
+              summary?.holdings?.map((h) => ({
+                symbol: h.symbol,
+                companyName: h.companyName,
+              })) || []
+            }
+          />
+        ) : isLoading ? (
           <div className="flex h-96 flex-col items-center justify-center gap-3">
             <Loader2 className="h-10 w-10 animate-spin text-blue-400" />
             <p className="text-sm font-medium text-slate-300">
@@ -459,7 +477,7 @@ export default function Home() {
                 No Spreadsheet Statement Loaded
               </h3>
               <p className="text-xs text-slate-400 max-w-sm mt-1">
-                Upload your Vested Excel (.xlsx), Apple Numbers (.numbers), or CSV export to analyze your portfolio.
+                Upload your Vested Excel (.xlsx), Apple Numbers (.numbers), or CSV export to analyze your portfolio. Or try the DCF Valuation tab above.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -474,6 +492,12 @@ export default function Home() {
                 className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700"
               >
                 Load Sample Data
+              </button>
+              <button
+                onClick={() => setActiveTab("dcf")}
+                className="rounded-lg border border-blue-500/50 bg-blue-600/20 px-4 py-2 text-xs font-medium text-blue-300 hover:bg-blue-600/30"
+              >
+                Open DCF Valuation
               </button>
             </div>
           </div>
