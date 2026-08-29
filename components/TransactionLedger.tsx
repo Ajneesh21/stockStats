@@ -58,7 +58,12 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
   }, [transactions, search, filterType, sortDesc]);
 
   const totalCommissions = useMemo(() => {
-    return transactions.reduce((sum, t) => sum + (t.fee || 0), 0);
+    return transactions.reduce((sum, t) => {
+      if (t.type === "FEE" || t.type === "TAX") {
+        return sum + Math.abs(t.amount || t.fee || 0);
+      }
+      return sum + (t.fee || 0);
+    }, 0);
   }, [transactions]);
 
   const typePills = [
