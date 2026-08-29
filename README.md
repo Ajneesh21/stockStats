@@ -84,3 +84,12 @@ Build production bundle:
 ```bash
 npm run build
 ```
+
+---
+
+## License & Disclaimer
+
+This project is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+
+For financial calculations, investment advice exclusions, and third-party data notices, please refer to the [Disclaimer](DISCLAIMER.md).
+
